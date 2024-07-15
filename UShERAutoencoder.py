@@ -32,6 +32,7 @@ parser.add_argument('--batchSize', type=int, required=False) # number of observa
 parser.add_argument('--learningRate', type=float, required=False) # learning rate of model
 parser.add_argument('--weightDecay', type=float, required=False) # weight decay of model
 parser.add_argument('--outRef', type=float, required=False) # weight decay of model
+parser.add_argument('--patience', type=float, required=False) # variable that effects stop conditions (greater means more training; lesser means less)
 
 args = parser.parse_args() 
 
@@ -46,12 +47,13 @@ def setArgument(arg,set):
 
 trainPath = args.trainPath
 evalPath = setArgument(args.evalPath, trainPath)
-funnel = setArgument(args.funnel,[1024,512])
+funnel = setArgument(args.funnel,[15288,512])
 epochs = setArgument(args.epochs,20)
 batchSize = setArgument(args.batchSize,32)
 learningRate = setArgument(args.learningRate, 1e-5) # to 1e-8
 weightDecay = setArgument(args.weightDecay,1e-8)
 outRef = setArgument(args.outRef,0)
+patience = setArgument(args.patience,20)
 
 outputReference = [["Train Path: ", trainPath],
                    ["Evaluation Path: ", evalPath],
@@ -94,7 +96,7 @@ def MSE_stable(mse_values, patience):
     else:
         recent = mse_values[-patience:]
         prior = mse_values[-2*patience:-patience]
-        return np.mean(recent) >= np.recent(prior)
+        return np.mean(recent) >= np.mean(prior)
         # return np.std(recent)/np.mean(recent) < 0.13
 
 def sumIt(list):
@@ -149,10 +151,8 @@ def trainAE(loader, epochs, rows, columns, loss_function, optimizer, patience):
             losses.append(loss.item())
         outputs.append((epochs, data, reconstructed))
 
-
-
-        #if MSE_stable(losses,patience):
-        #    return [outputs, losses]
+        if MSE_stable(losses,patience):
+            return [outputs, losses]
 
     return [outputs, losses]
 
@@ -212,7 +212,7 @@ if funnel[0] != Trows*Tcolumns:
 model = AE(funnel)
 print("Finished Initializing Model. Training Model.")
 
-[Toutputs, Tlosses] = trainAE(Tloader, epochs, Trows, Tcolumns, torch.nn.MSELoss(), torch.optim.Adam(model.parameters(),lr=learningRate, weight_decay=weightDecay),50)
+[Toutputs, Tlosses] = trainAE(Tloader, epochs, Trows, Tcolumns, torch.nn.MSELoss(), torch.optim.Adam(model.parameters(),lr=learningRate, weight_decay=weightDecay),patience)
 print("Finished Training Model. Evaluating Model.")
 
 # Evaluate autoencoder model
