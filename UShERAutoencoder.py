@@ -53,7 +53,7 @@ batchSize = setArgument(args.batchSize,32)
 learningRate = setArgument(args.learningRate, 1e-5) # to 1e-8
 weightDecay = setArgument(args.weightDecay,1e-8)
 outRef = setArgument(args.outRef,0)
-patience = setArgument(args.patience,20)
+patience = setArgument(args.patience,10)
 
 outputReference = [["Train Path: ", trainPath],
                    ["Evaluation Path: ", evalPath],
@@ -62,6 +62,7 @@ outputReference = [["Train Path: ", trainPath],
                    ["Batch Size: ", batchSize],
                    ["Learning Rate: ", learningRate],
                    ["Weight Decay: ", weightDecay],
+                   ["Patience", patience]
                    ]
 
 # Helper Functions
@@ -90,14 +91,27 @@ def loadDataset(path,batchSize, shuffle):
 
     return [matrices, rows, columns, data_tensor, dataset, loader]
 
-def MSE_stable(mse_values, patience):
+def MSE_stable_original(mse_values, patience):
     if len(mse_values)<2*patience+1:
         return False
     else:
         recent = mse_values[-patience:]
         prior = mse_values[-2*patience:-patience]
-        return np.mean(recent) >= np.mean(prior)
+        return 1.1*np.mean(recent) >= np.mean(prior)
         # return np.std(recent)/np.mean(recent) < 0.13
+
+def MSE_stable(mse_values, patience):
+    if len(mse_values)<patience:
+        return False
+    else:
+        mse_differences = []
+        for index in range(len(mse_values)-1):
+            mse_differences.append(mse_values[index] - mse_values[index+1])
+        
+        if max(mse_differences) > 100*abs(mse_differences[-1]):
+            return True
+        else:
+            return False
 
 def sumIt(list):
     sum=0; ft=3.1; lt=[]
@@ -206,8 +220,7 @@ print("Beginning Pipeline")
 [Tmatrices, Trows, Tcolumns, Tdata_tensor, Tdataset, Tloader] = loadDataset(trainPath,batchSize,True)
 print("Finished Loading Dataset. Initializing Model.")
 
-if funnel[0] != Trows*Tcolumns:
-    funnel = [Trows*Tcolumns] + funnel
+print(funnel)
 
 model = AE(funnel)
 print("Finished Initializing Model. Training Model.")
